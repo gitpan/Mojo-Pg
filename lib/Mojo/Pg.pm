@@ -1,15 +1,17 @@
 package Mojo::Pg;
 use Mojo::Base -base;
 
+use Carp 'croak';
 use DBI;
 use Mojo::Pg::Database;
+use Mojo::URL;
 
 has dsn             => 'dbi:Pg:dbname=test';
 has max_connections => 5;
 has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
 has [qw(password username)] => '';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub db {
   my $self = shift;
@@ -20,11 +22,36 @@ sub db {
   return Mojo::Pg::Database->new(dbh => $self->_dequeue, pg => $self);
 }
 
-sub new {
-  my $self = shift->SUPER::new;
-  @_ and $self->$_(shift) for qw(dsn username password options);
-  return $self;
+sub from_string {
+  my ($self, $str) = @_;
+
+  # Protocol
+  return $self unless $str;
+  my $url = Mojo::URL->new($str);
+  croak qq{Invalid PostgreSQL connection string "$str"}
+    unless $url->protocol eq 'postgresql';
+
+  # Database
+  my $dsn = 'dbi:Pg:dbname=' . $url->path->parts->[0];
+
+  # Host and port
+  if (my $host = $url->host) { $dsn .= ";host=$host" }
+  if (my $port = $url->port) { $dsn .= ";port=$port" }
+
+  # Username and password
+  if (($url->userinfo // '') =~ /^([^:]+)(?::([^:]+))?$/) {
+    $self->username($1);
+    $self->password($2) if defined $2;
+  }
+
+  # Options
+  my $hash = $url->query->to_hash;
+  @{$self->options}{keys %$hash} = values %$hash;
+
+  return $self->dsn($dsn);
 }
+
+sub new { @_ > 1 ? shift->SUPER::new->from_string(@_) : shift->SUPER::new }
 
 sub _dequeue {
   my $self = shift;
@@ -51,7 +78,7 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
   use Mojo::Pg;
 
   # Create a table
-  my $pg = Mojo::Pg->new('dbi:Pg:dbname=test', 'postgres');
+  my $pg = Mojo::Pg->new('postgresql://postgres@/test');
   $pg->db->do('create table names (name varchar(255))');
 
   # Insert a few rows
@@ -79,6 +106,12 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
 
 L<Mojo::Pg> is a tiny wrapper around L<DBD::Pg> that makes PostgreSQL a lot of
 fun to use with the L<Mojolicious> real-time web framework.
+
+Database handles and statement handles are cached automatically. While all I/O
+operations are performed blocking, you can wait for long running queries
+asynchronously, allowing the L<Mojo::IOLoop> event loop to perform other tasks
+in the meantime. Since database connections usually have a very low latency,
+this often results in very good performance.
 
 All cached database handles will be reset automatically if a new process has
 been forked, this allows multiple processes to share the same L<Mojo::Pg>
@@ -140,13 +173,34 @@ following new ones.
 Get L<Mojo::Pg::Database> object for a cached or newly created database
 handle.
 
+=head2 from_string
+
+  $pg = $pg->from_string('postgresql://postgres@/test');
+
+Parse configuration from connection string.
+
+  # Just a database
+  $pg->from_string('postgresql:///db1');
+
+  # Username and database
+  $pg->from_string('postgresql://sri@/db2');
+
+  # Username, password, host and database
+  $pg->from_string('postgresql://sri:s3cret@localhost/db3');
+
+  # Username, domain socket and database
+  $pg->from_string('postgresql://sri@%2ftmp%2fpg.sock/db4');
+
+  # Username, database and additional options
+  $pg->from_string('postgresql://sri@/db5?PrintError=1&RaiseError=0');
+
 =head2 new
 
   my $pg = Mojo::Pg->new;
-  my $pg = Mojo::Pg->new(
-    'dbi:Pg:dbname=foo', 'sri', 's3cret', {AutoCommit => 1});
+  my $pg = Mojo::Pg->new('postgresql://postgres@/test');
 
-Construct a new L<Mojo::Pg> object.
+Construct a new L<Mojo::Pg> object and parse connection string with
+L</"from_string"> if necessary.
 
 =head1 AUTHOR
 
