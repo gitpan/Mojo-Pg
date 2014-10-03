@@ -1,0 +1,17 @@
+Changes
+CONTRIBUTING.md
+lib/Mojo/Pg.pm
+lib/Mojo/Pg/Database.pm
+lib/Mojo/Pg/Results.pm
+LICENSE
+Makefile.PL
+MANIFEST			This list of files
+MANIFEST.SKIP
+README.md
+t/database.t
+t/pg_lite_app.t
+t/pod.t
+t/pod_coverage.t
+t/results.t
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

@@ -1,0 +1,31 @@
+---
+abstract: 'Non-blocking PostgreSQL client'
+author:
+  - 'Sebastian Riedel <sri@cpan.org>'
+build_requires:
+  ExtUtils::MakeMaker: '0'
+configure_requires:
+  ExtUtils::MakeMaker: '0'
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 6.98, CPAN::Meta::Converter version 2.142690'
+license: artistic_2
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: '1.4'
+name: Mojo-Pg
+no_index:
+  directory:
+    - t
+    - inc
+    - t
+requires:
+  DBD::Pg: '0'
+  Mojolicious: '5.44'
+  perl: '5.010001'
+resources:
+  IRC: irc://irc.perl.org/#mojo
+  bugtracker: https://github.com/kraih/mojo-pg/issues
+  homepage: http://mojolicio.us
+  license: http://www.opensource.org/licenses/artistic-license-2.0
+  repository: https://github.com/kraih/mojo-pg.git
+version: '0.01'
