@@ -1,5 +1,5 @@
 ---
-abstract: 'Non-blocking PostgreSQL client'
+abstract: 'Mojolicious ♥ PostgreSQL'
 author:
   - 'Sebastian Riedel <sri@cpan.org>'
 build_requires:
@@ -20,7 +20,7 @@ no_index:
     - t
 requires:
   DBD::Pg: '0'
-  Mojolicious: '5.44'
+  Mojolicious: '5.47'
   perl: '5.010001'
 resources:
   IRC: irc://irc.perl.org/#mojo
@@ -28,4 +28,4 @@ resources:
   homepage: http://mojolicio.us
   license: http://www.opensource.org/licenses/artistic-license-2.0
   repository: https://github.com/kraih/mojo-pg.git
-version: '0.02'
+version: '0.03'

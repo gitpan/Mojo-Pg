@@ -1,5 +1,5 @@
 {
-   "abstract" : "Non-blocking PostgreSQL client",
+   "abstract" : "Mojolicious ♥ PostgreSQL",
    "author" : [
       "Sebastian Riedel <sri@cpan.org>"
    ],
@@ -34,7 +34,7 @@
       "runtime" : {
          "requires" : {
             "DBD::Pg" : "0",
-            "Mojolicious" : "5.44",
+            "Mojolicious" : "5.47",
             "perl" : "5.010001"
          }
       }
@@ -53,5 +53,5 @@
       },
       "x_IRC" : "irc://irc.perl.org/#mojo"
    },
-   "version" : "0.02"
+   "version" : "0.03"
 }

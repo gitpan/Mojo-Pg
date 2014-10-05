@@ -2,13 +2,14 @@ use 5.010001;
 
 use strict;
 use warnings;
+use utf8;
 
 use ExtUtils::MakeMaker;
 
 WriteMakefile(
   NAME         => 'Mojo::Pg',
   VERSION_FROM => 'lib/Mojo/Pg.pm',
-  ABSTRACT     => 'Non-blocking PostgreSQL client',
+  ABSTRACT     => 'Mojolicious ♥ PostgreSQL',
   AUTHOR       => 'Sebastian Riedel <sri@cpan.org>',
   LICENSE      => 'artistic_2',
   META_MERGE   => {
@@ -22,6 +23,6 @@ WriteMakefile(
     },
     no_index => {directory => ['t']}
   },
-  PREREQ_PM => {Mojolicious => '5.44', 'DBD::Pg' => 0},
+  PREREQ_PM => {Mojolicious => '5.47', 'DBD::Pg' => 0},
   test      => {TESTS       => 't/*.t t/*/*.t'}
 );
