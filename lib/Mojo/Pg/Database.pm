@@ -18,11 +18,12 @@ sub backlog { scalar @{shift->{waiting} || []} }
 
 sub begin { shift->_dbh(begin_work => @_) }
 
-sub commit { shift->dbh->commit }
+sub commit { shift->_dbh(commit => @_) }
 
 sub disconnect {
   my $self = shift;
   $self->_unwatch;
+  delete $self->{queue};
   $self->dbh->disconnect;
 }
 
@@ -34,9 +35,9 @@ sub listen {
   my ($self, $name) = @_;
 
   my $dbh = $self->dbh;
+  local $dbh->{AutoCommit} = 1;
   $dbh->do('listen ' . $dbh->quote_identifier($name))
     unless $self->{listen}{$name}++;
-  $dbh->commit unless $dbh->{AutoCommit};
   $self->_watch;
 
   return $self;
@@ -60,15 +61,15 @@ sub query {
   $self->$_ for qw(_next _watch);
 }
 
-sub rollback { shift->dbh->rollback }
+sub rollback { shift->_dbh(rollback => @_) }
 
 sub unlisten {
   my ($self, $name) = @_;
 
   my $dbh = $self->dbh;
+  local $dbh->{AutoCommit} = 1;
   $dbh->do('unlisten' . $dbh->quote_identifier($name));
   $name eq '*' ? delete($self->{listen}) : delete($self->{listen}{$name});
-  $dbh->commit unless $dbh->{AutoCommit};
   $self->_unwatch unless $self->backlog || $self->is_listening;
 
   return $self;
@@ -158,10 +159,12 @@ Mojo::Pg::Database - Database
   use Mojo::Pg::Database;
 
   my $db = Mojo::Pg::Database->new(pg => $pg, dbh => $dbh);
+  $db->query('select * from foo')->hashes->pluck('bar')->join("\n")->say;
 
 =head1 DESCRIPTION
 
-L<Mojo::Pg::Database> is a container for database handles used by L<Mojo::Pg>.
+L<Mojo::Pg::Database> is a container for L<DBD::Pg> database handles used by
+L<Mojo::Pg>.
 
 =head1 EVENTS
 
@@ -186,7 +189,7 @@ L<Mojo::Pg::Database> implements the following attributes.
   my $dbh = $db->dbh;
   $db     = $db->dbh(DBI->new);
 
-Database handle used for all queries.
+L<DBD::Pg> database handle used for all queries.
 
 =head2 pg
 
@@ -222,7 +225,7 @@ Begin transaction.
 
 =head2 commit
 
-  $db->commit;
+  $db = $db->commit;
 
 Commit transaction.
 
@@ -230,7 +233,7 @@ Commit transaction.
 
   $db->disconnect;
 
-Disconnect database handle and prevent it from getting cached again.
+Disconnect L</"dbh"> and prevent it from getting cached again.
 
 =head2 do
 
@@ -242,7 +245,7 @@ Execute a statement and discard its result.
 
   my $bool = $db->is_listening;
 
-Check if database handle is listening of notifications.
+Check if L</"dbh"> is listening for notifications.
 
 =head2 listen
 
@@ -262,12 +265,12 @@ Check database connection.
   my $results = $db->query('select * from foo');
   my $results = $db->query('insert into foo values (?, ?, ?)', @values);
 
-Execute a statement and return a L<Mojo::Pg::Results> object with the results.
-The statement handle will be automatically cached again when that object is
-destroyed, so future queries can reuse it to increase performance. You can
-also append a callback to perform operation non-blocking.
+Execute a blocking statement and return a L<Mojo::Pg::Results> object with the
+results. The L<DBD::Pg> statement handle will be automatically cached again
+when that object is destroyed, so future queries can reuse it to increase
+performance. You can also append a callback to perform operation non-blocking.
 
-  $db->query('select * from foo' => sub {
+  $db->query('insert into foo values (?, ?, ?)' => @values => sub {
     my ($db, $err, $results) = @_;
     ...
   });
@@ -275,7 +278,7 @@ also append a callback to perform operation non-blocking.
 
 =head2 rollback
 
-  $db->rollback;
+  $db = $db->rollback;
 
 Rollback transaction.
 

@@ -4,14 +4,21 @@ use Mojo::Base -base;
 use Carp 'croak';
 use DBI;
 use Mojo::Pg::Database;
+use Mojo::Pg::Migrations;
 use Mojo::URL;
+use Scalar::Util 'weaken';
 
 has dsn             => 'dbi:Pg:dbname=test';
 has max_connections => 5;
+has migrations      => sub {
+  my $migrations = Mojo::Pg::Migrations->new(pg => shift);
+  weaken $migrations->{pg};
+  return $migrations;
+};
 has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
 has [qw(password username)] => '';
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 sub db {
   my $self = shift;
@@ -61,8 +68,9 @@ sub _dequeue {
 
 sub _enqueue {
   my ($self, $dbh) = @_;
-  push @{$self->{queue}}, $dbh if $dbh->{Active};
-  shift @{$self->{queue}} while @{$self->{queue}} > $self->max_connections;
+  my $queue = $self->{queue} ||= [];
+  push @$queue, $dbh if $dbh->{Active};
+  shift @$queue while @$queue > $self->max_connections;
 }
 
 1;
@@ -87,8 +95,7 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
   $db->query('insert into names values (?)', 'Daniel');
 
   # Select all rows blocking
-  say for $db->query('select * from names')
-    ->hashes->map(sub { $_->{name} })->each;
+  $db->query('select * from names')->hashes->pluck('name')->join("\n")->say;
 
   # Select all rows non-blocking
   Mojo::IOLoop->delay(
@@ -98,9 +105,20 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
     },
     sub {
       my ($delay, $err, $results) = @_;
-      say for $results->hashes->map(sub { $_->{name} })->each;
+      $results->hashes->pluck('name')->join("\n")->say;
     }
   )->wait;
+
+  # Load migrations from the DATA section and switch to latest version
+  $pg->migrations->from_data->migrate;
+
+  __DATA__
+  @@ migrations
+  -- 1 up
+  create table messages (message varchar(255));
+  insert into messages values ('I ♥ Mojolicious!');
+  -- 1 down
+  drop table messages;
 
 =head1 DESCRIPTION
 
@@ -114,6 +132,20 @@ blocking, you can wait for long running queries asynchronously, allowing the
 L<Mojo::IOLoop> event loop to perform other tasks in the meantime. Since
 database connections usually have a very low latency, this often results in
 very good performance.
+
+Every database connection can only handle one active query at a time, this
+includes asynchronous ones. So if you start more than one, they will be put on
+a waiting list and performed sequentially. To perform multiple queries
+concurrently, you have to use multiple connections.
+
+  # Performed sequentially (10 seconds)
+  my $db = $pg->db;
+  $db->query('select pg_sleep(5)' => sub {...});
+  $db->query('select pg_sleep(5)' => sub {...});
+
+  # Performed concurrently (5 seconds)
+  $pg->db->query('select pg_sleep(5)' => sub {...});
+  $pg->db->query('select pg_sleep(5)' => sub {...});
 
 All cached database handles will be reset automatically if a new process has
 been forked, this allows multiple processes to share the same L<Mojo::Pg>
@@ -140,6 +172,16 @@ Data Source Name, defaults to C<dbi:Pg:dbname=test>.
 
 Maximum number of idle database handles to cache for future use, defaults to
 C<5>.
+
+=head2 migrations
+
+  my $migrations = $pg->migrations;
+  $pg            = $pg->migrations(Mojo::Pg::Migrations->new);
+
+L<Mojo::Pg::Migrations> object we can use to perform database migrations.
+
+  # Load migrations from file and migrate to latest version
+  $pg->migrations->from_file('/Users/sri/migrations.sql')->migrate;
 
 =head2 options
 
@@ -172,10 +214,10 @@ following new ones.
 
   my $db = $pg->db;
 
-Get L<Mojo::Pg::Database> object for a cached or newly created database
-handle. The database handle will be automatically cached again when that
-object is destroyed, so you can handle connection timeouts gracefully by
-holding on to it only for short amounts of time.
+Get L<Mojo::Pg::Database> object for a cached or newly established database
+connection. The L<DBD::Pg> database handle will be automatically cached again
+when that object is destroyed, so you can handle connection timeouts
+gracefully by holding on to it only for short amounts of time.
 
 =head2 from_string
 
