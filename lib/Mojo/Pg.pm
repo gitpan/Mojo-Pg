@@ -18,7 +18,7 @@ has migrations      => sub {
 has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
 has [qw(password username)] => '';
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 sub db {
   my $self = shift;
@@ -94,6 +94,12 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
   $db->query('insert into names values (?)', 'Sara');
   $db->query('insert into names values (?)', 'Daniel');
 
+  # Select one row at a time
+  my $results = $db->query('select * from names');
+  while (my $next = $results->hash) {
+    say $next->{name};
+  }
+
   # Select all rows blocking
   $db->query('select * from names')->hashes->pluck('name')->join("\n")->say;
 
@@ -109,7 +115,7 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
     }
   )->wait;
 
-  # Load migrations from the DATA section and switch to latest version
+  # Load migrations from the DATA section and migrate to latest version
   $pg->migrations->from_data->migrate;
 
   __DATA__
@@ -178,7 +184,8 @@ C<5>.
   my $migrations = $pg->migrations;
   $pg            = $pg->migrations(Mojo::Pg::Migrations->new);
 
-L<Mojo::Pg::Migrations> object we can use to perform database migrations.
+L<Mojo::Pg::Migrations> object you can use to change your database schema more
+easily.
 
   # Load migrations from file and migrate to latest version
   $pg->migrations->from_file('/Users/sri/migrations.sql')->migrate;

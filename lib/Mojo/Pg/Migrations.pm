@@ -5,7 +5,7 @@ use Carp 'croak';
 use Mojo::Loader;
 use Mojo::Util 'slurp';
 
-use constant DEBUG => $ENV{MOJO_MIGRATION_DEBUG} || 0;
+use constant DEBUG => $ENV{MOJO_MIGRATIONS_DEBUG} || 0;
 
 has name => 'migrations';
 has 'pg';
@@ -67,7 +67,7 @@ sub migrate {
       grep { $_ > $target && $_ <= $active } reverse sort keys %$down;
   }
 
-  warn "-- Migrating ($active -> $target)\n$sql\n" if DEBUG;
+  warn "-- Migrate ($active -> $target)\n$sql\n" if DEBUG;
 
   $sql .= ';update mojo_migrations set version = ? where name = ?;';
   my $results = $db->query($sql, $target, $self->name);
@@ -116,9 +116,10 @@ Mojo::Pg::Migrations - Migrations
 
 =head1 DESCRIPTION
 
-L<Mojo::Pg::Migrations> performs database migrations for L<Mojo::Pg>.
-Migration files are just a collection of sql blocks, with one or more
-statements, separated by comments of the form C<-- VERSION UP/DOWN>.
+L<Mojo::Pg::Migrations> is used by L<Mojo::Pg> to allow database schemas to
+evolve very easily over time. Migration files are just a collection of sql
+blocks, with one or more statements, separated by comments of the form
+C<-- VERSION UP/DOWN>.
 
   -- 1 up
   create table messages (message varchar(255));
@@ -130,10 +131,11 @@ statements, separated by comments of the form C<-- VERSION UP/DOWN>.
   -- 2 down
   drop table stuff;
 
-Migrations are performed in transactions, if one statement fails the whole
-migration will fail. The current version, which is tied to the L</"name">,
-gets stored in an automatically created table with the name
-C<mojo_migrations>.
+The idea is to let you migrate from any version, to any version, up and down.
+Migrations are very safe, because they are performed in transactions. If one
+statement fails, the whole migration will fail. Every set of migrations has a
+L</"name">, which is stored together with the currently active version in an
+automatically created table named C<mojo_migrations>.
 
 =head1 ATTRIBUTES
 
@@ -218,10 +220,10 @@ representing an empty database.
 
 =head1 DEBUGGING
 
-You can set the C<MOJO_MIGRATION_DEBUG> environment variable to get some
+You can set the C<MOJO_MIGRATIONS_DEBUG> environment variable to get some
 advanced diagnostics information printed to C<STDERR>.
 
-  MOJO_MIGRATION_DEBUG=1
+  MOJO_MIGRATIONS_DEBUG=1
 
 =head1 SEE ALSO
 
