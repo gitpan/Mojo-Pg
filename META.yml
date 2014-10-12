@@ -28,4 +28,4 @@ resources:
   homepage: http://mojolicio.us
   license: http://www.opensource.org/licenses/artistic-license-2.0
   repository: https://github.com/kraih/mojo-pg.git
-version: '0.05'
+version: '0.06'

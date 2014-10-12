@@ -18,7 +18,7 @@ has migrations      => sub {
 has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
 has [qw(password username)] => '';
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 sub db {
   my $self = shift;
@@ -114,17 +114,6 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
       $results->hashes->pluck('name')->join("\n")->say;
     }
   )->wait;
-
-  # Load migrations from the DATA section and migrate to latest version
-  $pg->migrations->from_data->migrate;
-
-  __DATA__
-  @@ migrations
-  -- 1 up
-  create table messages (message varchar(255));
-  insert into messages values ('I ♥ Mojolicious!');
-  -- 1 down
-  drop table messages;
 
 =head1 DESCRIPTION
 
