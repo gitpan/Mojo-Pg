@@ -8,7 +8,7 @@ use Mojo::Pg::Migrations;
 use Mojo::URL;
 use Scalar::Util 'weaken';
 
-has dsn             => 'dbi:Pg:dbname=test';
+has dsn             => 'dbi:Pg:';
 has max_connections => 5;
 has migrations      => sub {
   my $migrations = Mojo::Pg::Migrations->new(pg => shift);
@@ -18,7 +18,7 @@ has migrations      => sub {
 has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
 has [qw(password username)] => '';
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 sub db {
   my $self = shift;
@@ -39,7 +39,8 @@ sub from_string {
     unless $url->protocol eq 'postgresql';
 
   # Database
-  my $dsn = 'dbi:Pg:dbname=' . $url->path->parts->[0];
+  my $db = $url->path->parts->[0];
+  my $dsn = defined $db ? "dbi:Pg:dbname=$db" : 'dbi:Pg:';
 
   # Host and port
   if (my $host = $url->host) { $dsn .= ";host=$host" }
@@ -51,8 +52,11 @@ sub from_string {
     $self->password($2) if defined $2;
   }
 
-  # Options
+  # Service
   my $hash = $url->query->to_hash;
+  if (my $service = delete $hash->{service}) { $dsn .= "service=$service" }
+
+  # Options
   @{$self->options}{keys %$hash} = values %$hash;
 
   return $self->dsn($dsn);
@@ -174,7 +178,7 @@ L<Mojo::Pg> implements the following attributes.
   my $dsn = $pg->dsn;
   $pg     = $pg->dsn('dbi:Pg:dbname=foo');
 
-Data Source Name, defaults to C<dbi:Pg:dbname=test>.
+Data source name, defaults to C<dbi:Pg:>.
 
 =head2 max_connections
 
@@ -240,6 +244,9 @@ Parse configuration from connection string.
   # Just a database
   $pg->from_string('postgresql:///db1');
 
+  # Just a service
+  $pg->from_string('postgresql://?service=foo');
+
   # Username and database
   $pg->from_string('postgresql://sri@/db2');
 
@@ -251,6 +258,9 @@ Parse configuration from connection string.
 
   # Username, database and additional options
   $pg->from_string('postgresql://sri@/db5?PrintError=1&RaiseError=0');
+
+  # Service and additional options
+  $pg->from_string('postgresql://?service=foo&PrintError=1&RaiseError=0');
 
 =head2 new
 

@@ -12,18 +12,26 @@ use Mojo::Pg;
 
 # Defaults
 my $pg = Mojo::Pg->new;
-is $pg->dsn,      'dbi:Pg:dbname=test', 'right data source';
-is $pg->username, '',                   'no username';
-is $pg->password, '',                   'no password';
+is $pg->dsn,      'dbi:Pg:', 'right data source';
+is $pg->username, '',        'no username';
+is $pg->password, '',        'no password';
 is_deeply $pg->options, {AutoCommit => 1, PrintError => 0, RaiseError => 1},
   'right options';
 
-# Minimal connection string
+# Minimal connection string with database
 $pg = Mojo::Pg->new('postgresql:///test1');
 is $pg->dsn,      'dbi:Pg:dbname=test1', 'right data source';
 is $pg->username, '',                    'no username';
 is $pg->password, '',                    'no password';
 is_deeply $pg->options, {AutoCommit => 1, PrintError => 0, RaiseError => 1},
+  'right options';
+
+# Minimal connection string with service and option
+$pg = Mojo::Pg->new('postgresql://?service=foo&PrintError=1');
+is $pg->dsn,      'dbi:Pg:service=foo', 'right data source';
+is $pg->username, '',                   'no username';
+is $pg->password, '',                   'no password';
+is_deeply $pg->options, {AutoCommit => 1, PrintError => 1, RaiseError => 1},
   'right options';
 
 # Connection string with host and port
