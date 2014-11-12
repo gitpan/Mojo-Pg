@@ -29,7 +29,7 @@ get '/' => sub ($c) {
 
     return $c->reply->exception($err) if $err;
 
-    $c->render(json => [$results->hashes->each]);
+    $c->render(json => $results->hashes->to_array);
   });
 };
 
@@ -38,7 +38,7 @@ __DATA__
 
 @@ migrations
 -- 1 up
-create table visitors (at timestamp, ip varchar(255));
+create table visitors (at timestamp with time zone, ip varchar(255));
 -- 1 down
 drop table visitors;
 ```

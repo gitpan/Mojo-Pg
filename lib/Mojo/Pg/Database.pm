@@ -6,6 +6,7 @@ use IO::Handle;
 use Mojo::IOLoop;
 use Mojo::Pg::Results;
 use Mojo::Pg::Transaction;
+use Scalar::Util 'weaken';
 
 has [qw(dbh pg)];
 has max_statements => 10;
@@ -19,9 +20,10 @@ sub backlog { scalar @{shift->{waiting} || []} }
 
 sub begin {
   my $self = shift;
-  my $dbh  = $self->dbh;
-  $dbh->begin_work;
-  return Mojo::Pg::Transaction->new(dbh => $dbh);
+  $self->dbh->begin_work;
+  my $tx = Mojo::Pg::Transaction->new(db => $self);
+  weaken $tx->{db};
+  return $tx;
 }
 
 sub disconnect {
@@ -34,6 +36,7 @@ sub disconnect {
 sub do {
   my $self = shift;
   $self->dbh->do(@_);
+  $self->_notifications;
   return $self;
 }
 
@@ -67,6 +70,7 @@ sub query {
   unless ($cb) {
     my $sth = $self->_dequeue(0, $query);
     $sth->execute(@_);
+    $self->_notifications;
     return Mojo::Pg::Results->new(db => $self, sth => $sth);
   }
 
@@ -116,6 +120,13 @@ sub _next {
   $sth->execute(@{$next->{args}});
 }
 
+sub _notifications {
+  my $self = shift;
+  while (my $notify = $self->dbh->pg_notifies) {
+    $self->emit(notification => @$notify);
+  }
+}
+
 sub _unwatch {
   my $self = shift;
   return unless delete $self->{watching};
@@ -133,11 +144,7 @@ sub _watch {
     $self->{handle} => sub {
       my $reactor = shift;
 
-      # Notifications
-      while (my $notify = $dbh->pg_notifies) {
-        $self->emit(notification => @$notify);
-      }
-
+      $self->_notifications;
       return unless (my $waiting = $self->{waiting}) && $dbh->pg_ready;
       my ($sth, $cb) = @{shift @$waiting}{qw(sth cb)};
 

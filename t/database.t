@@ -169,18 +169,39 @@ $pg->unsubscribe('connection');
 $db = $pg->db;
 ok !$db->is_listening, 'not listening';
 ok $db->listen('foo')->is_listening, 'listening';
+my $db2 = $pg->db->listen('foo');
 my @notifications;
 Mojo::IOLoop->delay(
   sub {
     my $delay = shift;
     $db->once(notification => $delay->begin);
-    Mojo::IOLoop->next_tick(sub { $pg->db->notify('foo', 'bar') });
+    $db2->once(notification => $delay->begin);
+    Mojo::IOLoop->next_tick(sub { $db2->notify('foo', 'bar') });
+  },
+  sub {
+    my ($delay, $name, $pid, $payload, $name2, $pid2, $payload2) = @_;
+    push @notifications, [$name, $pid, $payload], [$name2, $pid2, $payload2];
+    $db->once(notification => $delay->begin);
+    $db2->unlisten('foo');
+    Mojo::IOLoop->next_tick(sub { $pg->db->notify('foo') });
   },
   sub {
     my ($delay, $name, $pid, $payload) = @_;
     push @notifications, [$name, $pid, $payload];
-    $db->once(notification => $delay->begin);
-    Mojo::IOLoop->next_tick(sub { $pg->db->notify('foo') });
+    $db2->listen('bar')->once(notification => $delay->begin);
+    Mojo::IOLoop->next_tick(sub { $db2->do("notify bar, 'baz'") });
+  },
+  sub {
+    my ($delay, $name, $pid, $payload) = @_;
+    push @notifications, [$name, $pid, $payload];
+    $db2->once(notification => $delay->begin);
+    my $tx = $db2->begin;
+    Mojo::IOLoop->next_tick(
+      sub {
+        $db2->notify('bar', 'yada');
+        $tx->commit;
+      }
+    );
   },
   sub {
     my ($delay, $name, $pid, $payload) = @_;
@@ -188,12 +209,23 @@ Mojo::IOLoop->delay(
   }
 )->wait;
 ok !$db->unlisten('foo')->is_listening, 'not listening';
-is $notifications[0][0], 'foo', 'right channel name';
+ok !$db2->unlisten('*')->is_listening,  'not listening';
+is $notifications[0][0], 'foo',  'right channel name';
 ok $notifications[0][1], 'has process id';
-is $notifications[0][2], 'bar', 'right payload';
-is $notifications[1][0], 'foo', 'right channel name';
+is $notifications[0][2], 'bar',  'right payload';
+is $notifications[1][0], 'foo',  'right channel name';
 ok $notifications[1][1], 'has process id';
-is $notifications[1][2], '',    'no payload';
+is $notifications[1][2], 'bar',  'right payload';
+is $notifications[2][0], 'foo',  'right channel name';
+ok $notifications[2][1], 'has process id';
+is $notifications[2][2], '',     'no payload';
+is $notifications[3][0], 'bar',  'right channel name';
+ok $notifications[3][1], 'has process id';
+is $notifications[3][2], 'baz',  'no payload';
+is $notifications[4][0], 'bar',  'right channel name';
+ok $notifications[4][1], 'has process id';
+is $notifications[4][2], 'yada', 'no payload';
+is $notifications[5], undef, 'no more notifications';
 
 # Stop listening for all notifications
 ok !$db->is_listening, 'not listening';

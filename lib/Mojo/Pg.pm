@@ -18,7 +18,7 @@ has migrations      => sub {
 has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
 has [qw(password username)] => '';
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 sub db {
   my $self = shift;
@@ -99,6 +99,14 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
   my $db = $pg->db;
   $db->query('insert into names values (?)', 'Sara');
   $db->query('insert into names values (?)', 'Daniel');
+
+  # Insert more rows in a transaction
+  {
+    my $tx = $db->begin;
+    $db->query('insert into names values (?)', 'Baerbel');
+    $db->query('insert into names values (?)', 'Wolfgang');
+    $tx->commit;
+  };
 
   # Select one row at a time
   my $results = $db->query('select * from names');
