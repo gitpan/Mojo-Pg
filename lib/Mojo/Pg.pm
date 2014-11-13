@@ -18,7 +18,7 @@ has migrations      => sub {
 has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
 has [qw(password username)] => '';
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 sub db {
   my $self = shift;
@@ -129,6 +129,15 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
       $results->hashes->map(sub { $_->{name} })->join("\n")->say;
     }
   )->wait;
+
+  # Listen for notifications non-blocking
+  $db->on(notification => sub {
+    my ($db, $name, $pid, $payload) = @_;
+    say "$name: $payload";
+    $db->notify('bar', $payload) if $name eq 'foo';
+  });
+  $db->listen('foo');
+  Mojo::IOLoop->start unless Mojo::IOLoop->is_running;
 
 =head1 DESCRIPTION
 
