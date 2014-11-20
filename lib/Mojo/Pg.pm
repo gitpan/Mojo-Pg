@@ -18,7 +18,7 @@ has migrations      => sub {
 has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
 has [qw(password username)] => '';
 
-our $VERSION = '1.0';
+our $VERSION = '1.01';
 
 sub db {
   my $self = shift;
@@ -144,6 +144,22 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
 L<Mojo::Pg> is a tiny wrapper around L<DBD::Pg> that makes
 L<PostgreSQL|http://www.postgresql.org> a lot of fun to use with the
 L<Mojolicious|http://mojolicio.us> real-time web framework.
+
+  use Mojolicious::Lite;
+  use Mojo::Pg;
+
+  helper pg =>
+    sub { state $pg = Mojo::Pg->new('postgresql://sri:s3cret@localhost/db') };
+
+  get '/' => sub {
+    my $c = shift;
+
+    my $db      = $c->pg->db;
+    my $results = $db->query('select now() as time');
+    $c->render(json => $results->hash);
+  };
+
+  app->start;
 
 Database and statement handles are cached automatically, so they can be reused
 transparently to increase performance. While all I/O operations are performed
