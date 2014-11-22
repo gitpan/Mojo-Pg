@@ -15,10 +15,12 @@ has migrations      => sub {
   weaken $migrations->{pg};
   return $migrations;
 };
-has options => sub { {AutoCommit => 1, PrintError => 0, RaiseError => 1} };
+has options => sub {
+  {AutoCommit => 1, PrintError => 0, RaiseError => 1, pg_server_prepare => 0};
+};
 has [qw(password username)] => '';
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 sub db {
   my $self = shift;
@@ -145,6 +147,10 @@ L<Mojo::Pg> is a tiny wrapper around L<DBD::Pg> that makes
 L<PostgreSQL|http://www.postgresql.org> a lot of fun to use with the
 L<Mojolicious|http://mojolicio.us> real-time web framework.
 
+Database and statement handles are cached automatically, so they can be reused
+transparently to increase performance. And you can handle connection timeouts
+gracefully by holding on to them only for short amounts of time.
+
   use Mojolicious::Lite;
   use Mojo::Pg;
 
@@ -152,21 +158,17 @@ L<Mojolicious|http://mojolicio.us> real-time web framework.
     sub { state $pg = Mojo::Pg->new('postgresql://sri:s3cret@localhost/db') };
 
   get '/' => sub {
-    my $c = shift;
-
-    my $db      = $c->pg->db;
-    my $results = $db->query('select now() as time');
-    $c->render(json => $results->hash);
+    my $c  = shift;
+    my $db = $c->pg->db;
+    $c->render(json => $db->query('select now() as time')->hash);
   };
 
   app->start;
 
-Database and statement handles are cached automatically, so they can be reused
-transparently to increase performance. While all I/O operations are performed
-blocking, you can wait for long running queries asynchronously, allowing the
-L<Mojo::IOLoop> event loop to perform other tasks in the meantime. Since
-database connections usually have a very low latency, this often results in
-very good performance.
+While all I/O operations are performed blocking, you can wait for long running
+queries asynchronously, allowing the L<Mojo::IOLoop> event loop to perform
+other tasks in the meantime. Since database connections usually have a very
+low latency, this often results in very good performance.
 
 Every database connection can only handle one active query at a time, this
 includes asynchronous ones. So if you start more than one, they will be put on
@@ -236,7 +238,7 @@ easily.
   $pg         = $pg->options({AutoCommit => 1});
 
 Options for database handles, defaults to activating C<AutoCommit> as well as
-C<RaiseError> and deactivating C<PrintError>.
+C<RaiseError> and deactivating C<PrintError> as well as C<pg_server_prepare>.
 
 =head2 password
 
@@ -288,7 +290,7 @@ Parse configuration from connection string.
   $pg->from_string('postgresql://sri@%2ftmp%2fpg.sock/db4');
 
   # Username, database and additional options
-  $pg->from_string('postgresql://sri@/db5?PrintError=1&RaiseError=0');
+  $pg->from_string('postgresql://sri@/db5?PrintError=1&pg_server_prepare=1');
 
   # Service and additional options
   $pg->from_string('postgresql://?service=foo&PrintError=1&RaiseError=0');
