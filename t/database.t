@@ -8,6 +8,7 @@ plan skip_all => 'set TEST_ONLINE to enable this test'
   unless $ENV{TEST_ONLINE};
 
 use Mojo::IOLoop;
+use Mojo::JSON 'true';
 use Mojo::Pg;
 
 # Defaults
@@ -147,6 +148,28 @@ is $db->dollar_only->query('select $1 as test', 23)->hash->{test}, 23,
 eval { $db->dollar_only->query('select ? as test', 23) };
 like $@, qr/called with 1 bind variables when 0 are needed/, 'right error';
 is $db->query('select ? as test', 23)->hash->{test}, 23, 'right result';
+
+# JSON
+$db = $pg->db;
+is_deeply $db->query('select ?::json as foo', {json => {bar => 'baz'}})
+  ->expand->hash, {foo => {bar => 'baz'}}, 'right structure';
+is_deeply $db->query('select ?::json as foo', {json => {bar => 'baz'}})
+  ->expand->array, [{bar => 'baz'}], 'right structure';
+is_deeply $db->query('select ?::json as foo', {json => {bar => 'baz'}})
+  ->expand->hashes->first, {foo => {bar => 'baz'}}, 'right structure';
+is_deeply $db->query('select ?::json as foo', {json => {bar => 'baz'}})
+  ->expand->arrays->first, [{bar => 'baz'}], 'right structure';
+is_deeply $db->query('select ?::json as foo', {json => {bar => 'baz'}})->hash,
+  {foo => '{"bar":"baz"}'}, 'right structure';
+is_deeply $db->query('select ?::json as foo', {json => \1})
+  ->expand->hashes->first, {foo => true}, 'right structure';
+is_deeply $db->query('select ?::json as foo', undef)->expand->hash,
+  {foo => undef}, 'right structure';
+is_deeply $db->query('select ?::json as foo', undef)->expand->array, [undef],
+  'right structure';
+my $results = $db->query('select ?::json', undef);
+is_deeply $results->expand->array, [undef], 'right structure';
+is_deeply $results->expand->array, undef, 'no more results';
 
 # Fork safety
 $dbh = $pg->db->dbh;

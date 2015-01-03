@@ -20,7 +20,7 @@ has options => sub {
 };
 has [qw(password username)] => '';
 
-our $VERSION = '1.06';
+our $VERSION = '1.07';
 
 sub db {
   my $self = shift;
@@ -116,6 +116,10 @@ Mojo::Pg - Mojolicious ♥ PostgreSQL
   while (my $next = $results->hash) {
     say $next->{name};
   }
+
+  # JSON roundtrip
+  say $db->query('select ?::json as foo', {json => {bar => 'baz'}})
+    ->expand->hash->{foo}{bar};
 
   # Select all rows blocking
   $db->query('select * from names')
@@ -313,7 +317,7 @@ Sebastian Riedel, C<sri@cpan.org>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2014, Sebastian Riedel.
+Copyright (C) 2014-2015, Sebastian Riedel.
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.

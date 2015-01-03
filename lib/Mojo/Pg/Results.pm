@@ -2,23 +2,53 @@ package Mojo::Pg::Results;
 use Mojo::Base -base;
 
 use Mojo::Collection;
+use Mojo::JSON 'decode_json';
 use Mojo::Util 'tablify';
 
 has 'sth';
 
-sub array { shift->sth->fetchrow_arrayref }
+sub array { ($_[0]->_expand($_[0]->sth->fetchrow_arrayref))[0] }
 
-sub arrays { Mojo::Collection->new(@{shift->sth->fetchall_arrayref}) }
+sub arrays {
+  Mojo::Collection->new($_[0]->_expand(@{$_[0]->sth->fetchall_arrayref}));
+}
 
 sub columns { shift->sth->{NAME} }
 
-sub hash { shift->sth->fetchrow_hashref }
+sub hash { ($_[0]->_expand($_[0]->sth->fetchrow_hashref))[0] }
 
-sub hashes { Mojo::Collection->new(@{shift->sth->fetchall_arrayref({})}) }
+sub expand { ++$_[0]{expand} and return $_[0] }
+
+sub hashes {
+  Mojo::Collection->new($_[0]->_expand(@{$_[0]->sth->fetchall_arrayref({})}));
+}
 
 sub rows { shift->sth->rows }
 
 sub text { tablify shift->arrays }
+
+sub _expand {
+  my ($self, @data) = @_;
+
+  return @data unless $data[0] && $self->{expand};
+  my ($idx, $name) = @$self{qw(idx name)};
+  unless ($idx) {
+    my $types = $self->sth->{pg_type};
+    my @idx = grep { $types->[$_] eq 'json' || $types->[$_] eq 'jsonb' }
+      0 .. $#$types;
+    ($idx, $name) = @$self{qw(idx name)} = (\@idx, [@{$self->columns}[@idx]]);
+  }
+  return @data unless @$idx;
+
+  for my $data (@data) {
+    if (ref $data eq 'HASH') { $data->{$_} and _json($data->{$_}) for @$name }
+    else                     { $data->[$_] and _json($data->[$_]) for @$idx }
+  }
+
+  return @data;
+}
+
+sub _json { $_[0] = decode_json $_[0] }
 
 1;
 
@@ -82,6 +112,15 @@ containing array references.
   my $columns = $results->columns;
 
 Return column names as an array reference.
+
+=head2 expand
+
+  $results = $results->expand;
+
+Decode C<json> and C<jsonb> fields automatically for all rows.
+
+  # Expand JSON
+  $results->expand->hashes->map(sub { $_->{foo}{bar} })->join("\n")->say;
 
 =head2 hash
 
